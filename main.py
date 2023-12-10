@@ -3,7 +3,11 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import seaborn as sns
+
 import plotly
+import plotly.figure_factory as ff
+from plotly.offline import iplot
 
 # заголовок приложения
 st.title('Домашнее задание по прикладному Python')
@@ -31,54 +35,111 @@ col_dict = {'AGREEMENT_RK' : 'Уникальный идентификатор о
             'LOAN_NUM_CLOSED' : 'Количество погашенных ссуд клиента'
            }
 
-option = st.selectbox(
-     'Выберите параметр, по которому хотите посмотреть распределение',
-     (columns))
-st.write(f'Вы выбрали: {option} - {col_dict[option]}')
-
-bins = st.number_input("Выберите количество корзин для  распределения",20, 200)
-
-title_name = col_dict[option].split("(")[0]
-if len(col_dict[option].split("(")) < 2:
-    subtitle_name = ""
-else:
-    subtitle_name = col_dict[option].split("(")[-1][:-1]
-
 fig, ax = plt.subplots()
-plt.title(f'График распределения по параметру\n{title_name}\n{subtitle_name}')
-ax.hist(df[option], bins=bins)
+plt.title('График распределения по параметру\n Возраст клиента')
+ax.hist(df['AGE'], bins=50)
 
-# ax.set_xlabel('Имя', loc='right')
+ax.set_xlabel('Возраст клиента')
 ax.set_ylabel('Количество')
 plt.grid('all')
 
 fig
 
-# построение графиков зависимостей целевой переменной и признаков
-st.header("2. Построим графики зависимостей целевой переменной и признаков")
-dep_cols = columns.copy()
-dep_cols.remove('TARGET')
+# Построение графика boxplot
+st.subheader("Построим график boxplot")
 
-# Select box
-option1 = st.selectbox(
-     'Выберите параметр, от которого хотите посмотреть зависимость целевой переменной',
-     (dep_cols))
+hue_dict = {'GENDER' : 'Пол клиента (1 — мужчина, 0 — женщина)',
+            'SOCSTATUS_WORK_FL' : 'Социальный статус клиента относительно работы (1 — работает, 0 — не работает)',
+            'SOCSTATUS_PENS_FL' : 'Социальный статус клиента относительно пенсии (1 — пенсионер, 0 — не пенсионер)',
+           }
 
-st.write(f'Ваш выбор: {option1} - {col_dict[option1]}')
-title_name = col_dict[option1].split("(")[0]
-if len(col_dict[option1].split("(")) < 2:
-    subtitle_name = ""
-else:
-    subtitle_name = col_dict[option1].split("(")[-1][:-1]
+hue = st.selectbox(
+     'Выберите параметр "hue", по которому хотите посмотреть распределение',
+     (hue_dict.keys()))
+st.write(f'Вы выбрали: {hue} - {hue_dict[hue]}')
+
+fig, ax = plt.subplots(figsize=(10, 10))
+plt.title('График зависимости целевого признака от возраста', fontsize = 20)
+ax = sns.boxplot(x="TARGET",
+                 y="AGE",
+                 hue=hue,
+                 data=df,
+                 palette="coolwarm",
+                 showmeans=True)
+plt.grid('all')
+plt.grid('all')
+# plt.legend(loc=1)
+fig
+
+st.write('Посмотрим основные числовые характеристики по возрасту')
+st.table(round(df['AGE'].describe(), 1))
+st.write('Самый распространенный возраст от 30 до 50 лет')
+
+
+st.subheader("График распределения по параметру Личный доход клиента")
 
 fig, ax = plt.subplots()
-plt.title(f'График зависимости целевой переменной от параметра\n{title_name}\n{subtitle_name}')
-ax.scatter(df[option1], df['TARGET'])
+plt.title('График распределения по параметру\n Личный доход клиента (в рублях)')
+ax.hist(df['PERSONAL_INCOME'], bins=200)
 
-# ax.set_xlabel('Имя', loc='right')
-# ax.set_ylabel('Целевая переменная')
+ax.set_xlabel('Личный доход клиента (в рублях)')
+ax.set_ylabel('Количество')
+ax.set_xlim([0, 40000])
 plt.grid('all')
+fig
 
+st.subheader("Построим график boxplot")
+
+
+fig, ax = plt.subplots(figsize=(10, 10))
+plt.title('График зависимости целевого признака от возраста', fontsize = 20)
+ax = sns.boxplot(x="TARGET",
+                 y="PERSONAL_INCOME",
+                 hue=hue,
+                 data=df,
+                 palette="coolwarm",
+                 showmeans=True,
+                 showfliers=1,
+                )
+plt.grid('all')
+# plt.legend(loc=1)
 fig
 
 
+st.write('Посмотрим основные числовые характеристики по доходу')
+st.table(round(df['PERSONAL_INCOME'].describe(), 1))
+st.write('''Самый распространенный доход от 7000 до 20000 рублей.
+         При этом есть привязки дохода к числам кратным 5000''')
+
+
+# Построение матрицы корреляций признаков
+st.subheader("Построим матрицу корреляций признаков")
+
+crr = round(df[columns].corr(), 2)
+
+fig, ax = plt.subplots(figsize=(15, 15))
+# plt.title('Матрица корреляции признаков')#, fontsize = 20)
+ax = sns.heatmap(crr,
+                 annot = True,
+                 cmap="YlGnBu",
+                 linecolor='white',
+                 linewidths=1,
+                 annot_kws={"fontsize":10}
+            )
+fig
+
+st.write('''Пары ярковыраженных зависимостей между признаками''')
+st.table(abs(crr[(crr < 1) & (crr > -1)]).max().sort_values(ascending=False))
+
+st.write('''
+1. Наблюдается ярковыраженная зависимость между признаками LOAN_NUM_TOTAL и 
+LOAN_NUM_CLOSED что довольно логично - количество выданных кредитов обычно 
+коррелирует с количеством закрытых кредитов;\n
+2. Наблюдается ярковыраженная обратная зависимость между признаками 
+SOCSTATUS_WORK_FL и SOCSTATUS_PENS_FL. Это логично, ведь когда человек выходит
+на пенсию, он обычно перестает работать;\n
+3. Есть выраженная зависимость количества детей и иждевенцев. Зачастую дети и 
+являются иждевенцами. Но так как это не всегда тае, то поэтому зависимость не 
+такая сильная;\n
+4. Есть выраженная зависимость возраста и пенсионного статуса, и это тоже логично.
+''')
